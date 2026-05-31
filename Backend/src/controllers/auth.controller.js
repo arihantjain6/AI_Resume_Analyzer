@@ -62,7 +62,12 @@ export const loginUser = async(req,res) => {
         {expiresIn: "1h"}
     );
 
-    res.cookie("token",token);
+    res.cookie("token", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 3600000 // 1 hour
+    });
 res.status(200).json({message: "User logged in successfully", user:{id: user._id, username: user.username, email: user.email}});
 }
 
@@ -72,7 +77,11 @@ export const logoutUser = async(req,res)=>{
         if(token){
             await blackListModel.create({token});
         }
-        res.clearCookie("token");
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none'
+        });
         res.status(200).json({message: "User logged out successfully"});
     } catch (error) {
         return res.json({message: "failed", error:error.message});

@@ -1,20 +1,25 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { Mail, Lock, LogIn } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { LoaderCircle, Lock, LogIn, Mail } from 'lucide-react';
+import { Alert } from '../../../components/ui/Alert';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { Field, Input } from '../../../components/ui/Form';
+import { useAuth } from '../hooks/useAuth';
+import { AuthLayout } from '../components/AuthLayout';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
     try {
@@ -28,81 +33,75 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/20 blur-[120px]" />
-      
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+    <AuthLayout title="Welcome back" description="Sign in to continue building focused interview reports.">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-panel w-full max-w-md p-8 relative z-10"
+        transition={{ duration: 0.35 }}
       >
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
-          <p className="text-textSecondary">Sign in to your account to continue</p>
-        </div>
+        <Card className="p-5 sm:p-6">
+          {error && (
+            <Alert variant="error" title="Sign in failed" className="mb-5">
+              {error}
+            </Alert>
+          )}
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
-            {error}
-          </div>
-        )}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <Field label="Email" htmlFor="login-email">
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="pl-10"
+                  placeholder="john@example.com"
+                />
+              </div>
+            </Field>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="label-text">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-textSecondary" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-field pl-10"
-                placeholder="john@example.com"
-              />
-            </div>
-          </div>
+            <Field label="Password" htmlFor="login-password">
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="pl-10"
+                  placeholder="Enter your password"
+                />
+              </div>
+            </Field>
 
-          <div>
-            <label className="label-text">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-textSecondary" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field pl-10"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Signing in
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4" />
+                  Sign In
+                </>
+              )}
+            </Button>
+          </form>
+        </Card>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full mt-2"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <LogIn className="w-5 h-5" />
-                Sign In
-              </>
-            )}
-          </button>
-        </form>
-
-        <p className="text-center text-textSecondary mt-6 text-sm">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{' '}
-          <Link to="/register" className="text-primary hover:text-primaryHover font-medium transition-colors">
+          <Link to="/register" className="font-medium text-primary underline-offset-4 hover:underline">
             Register here
           </Link>
         </p>
       </motion.div>
-    </div>
+    </AuthLayout>
   );
 }

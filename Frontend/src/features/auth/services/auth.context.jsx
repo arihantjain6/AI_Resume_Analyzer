@@ -1,7 +1,6 @@
-import { createContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getCurrentUserAPI, loginAPI, registerAPI, logoutAPI } from './auth.api';
-
-export const AuthContext = createContext();
+import { AuthContext } from './AuthContext';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -12,7 +11,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const data = await getCurrentUserAPI();
         setUser(data.user);
-      } catch (error) {
+      } catch {
         setUser(null);
       } finally {
         setLoading(false);

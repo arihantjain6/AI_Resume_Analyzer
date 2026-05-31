@@ -1,37 +1,190 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInterview } from '../hooks/useInterview';
-import Navbar from '../../../components/Navbar';
-import { FileText, Plus, Upload, Briefcase, FileSignature, ArrowRight, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+import {
+  ArrowRight,
+  Briefcase,
+  CalendarDays,
+  CheckCircle2,
+  FileSignature,
+  FileText,
+  History,
+  LoaderCircle,
+  Plus,
+  Sparkles,
+  Upload,
+  User,
+  X,
+} from 'lucide-react';
+import Navbar from '../../../components/Navbar';
+import { Alert } from '../../../components/ui/Alert';
+import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { Field, Textarea } from '../../../components/ui/Form';
+import { PageShell, SectionHeader } from '../../../components/ui/PageShell';
+import { Skeleton } from '../../../components/ui/Skeleton';
+import { cn } from '../../../lib/utils';
+import { useInterview } from '../hooks/useInterview';
+
+const formatDate = (date) =>
+  new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(date));
+
+const getScoreVariant = (score) => {
+  if (score >= 75) return 'success';
+  if (score >= 50) return 'warning';
+  return 'danger';
+};
+
+function MetricCard({ icon: Icon, label, value, helper }) {
+  return (
+    <Card className="p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+          {helper && <p className="mt-1 text-sm text-muted-foreground">{helper}</p>}
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ReportCard({ report, index, onOpen }) {
+  const score = Number(report.matchScore) || 0;
+
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04, duration: 0.25 }}
+      onClick={onOpen}
+      className="group h-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
+      <Card className="flex h-full flex-col p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/35 group-hover:shadow-soft">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+            <FileText className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <Badge variant="neutral" className="shrink-0">
+            {formatDate(report.createdAt)}
+          </Badge>
+        </div>
+
+        <div className="mt-5 flex-1">
+          <h3 className="line-clamp-2 text-base font-semibold leading-6 text-foreground group-hover:text-primary">
+            {report.title || 'Untitled Report'}
+          </h3>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
+          <Badge variant={getScoreVariant(score)}>Match {score}%</Badge>
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground group-hover:text-primary">
+            Open
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </span>
+        </div>
+      </Card>
+    </motion.button>
+  );
+}
+
+function ReportSkeletons() {
+  return Array.from({ length: 6 }).map((_, index) => (
+    <Card key={index} className="p-5">
+      <div className="flex items-start justify-between">
+        <Skeleton className="h-10 w-10 rounded-lg" />
+        <Skeleton className="h-6 w-24 rounded-full" />
+      </div>
+      <Skeleton className="mt-6 h-5 w-4/5" />
+      <Skeleton className="mt-2 h-5 w-2/3" />
+      <div className="mt-8 flex items-center justify-between border-t border-border pt-4">
+        <Skeleton className="h-6 w-24 rounded-full" />
+        <Skeleton className="h-5 w-14" />
+      </div>
+    </Card>
+  ));
+}
 
 export default function Home() {
   const [reports, setReports] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
-  
-  // Form State
   const [resume, setResume] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
   const [selfDescription, setSelfDescription] = useState('');
-  
+  const fileInputRef = useRef(null);
+
   const { getAllReports, generateReport, loading, error } = useInterview();
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchReports();
+    let isMounted = true;
+
+    getAllReports()
+      .then((data) => {
+        if (isMounted) {
+          setReports(data || []);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [getAllReports]);
 
-  const fetchReports = async () => {
-    try {
-      const data = await getAllReports();
-      setReports(data || []);
-    } catch (err) {
-      console.error(err);
+  const metrics = useMemo(() => {
+    const scores = reports.map((report) => Number(report.matchScore) || 0);
+    const average = scores.length
+      ? Math.round(scores.reduce((total, score) => total + score, 0) / scores.length)
+      : 0;
+    return {
+      total: reports.length,
+      latestScore: scores[0] || 0,
+      average,
+    };
+  }, [reports]);
+
+  const selectFile = (file) => {
+    if (file) {
+      setResume(file);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleFileDrop = (event) => {
+    event.preventDefault();
+    selectFile(event.dataTransfer.files?.[0]);
+  };
+
+  const handleFileKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInputRef.current?.click();
+    }
+  };
+
+  const resetForm = () => {
+    setResume(null);
+    setJobDescription('');
+    setSelfDescription('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!resume) return;
 
     const formData = new FormData();
@@ -48,186 +201,211 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="fixed top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary/10 blur-[120px] pointer-events-none animate-blob" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent/10 blur-[120px] pointer-events-none animate-blob" style={{ animationDelay: '2s' }} />
-      <div className="fixed top-[40%] left-[60%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[100px] pointer-events-none animate-blob" style={{ animationDelay: '4s' }} />
-      
+    <div className="min-h-screen bg-background">
       <Navbar />
-      
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-2">Dashboard</h1>
-            <p className="text-textSecondary text-lg">Manage and create your interview preparation reports</p>
-          </div>
-          <button 
-            onClick={() => setIsCreating(!isCreating)}
-            className="btn-primary"
-          >
-            {isCreating ? 'View Past Reports' : (
-              <>
-                <Plus className="w-5 h-5" />
-                New Analysis
-              </>
-            )}
-          </button>
-        </div>
+
+      <PageShell className="space-y-8">
+        <SectionHeader
+          eyebrow={isCreating ? 'New analysis' : 'Dashboard'}
+          title={isCreating ? 'Generate interview report' : 'Your interview reports'}
+          description={
+            isCreating
+              ? 'Upload a resume and paste the target role details to create a focused preparation report.'
+              : 'Review past analyses, compare match scores, and open any report for deeper preparation.'
+          }
+          action={
+            <Button type="button" onClick={() => setIsCreating((current) => !current)}>
+              {isCreating ? (
+                <>
+                  <History className="h-4 w-4" />
+                  View Reports
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  New Analysis
+                </>
+              )}
+            </Button>
+          }
+        />
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+          <Alert variant="error" title="Something went wrong">
             {error}
-          </div>
+          </Alert>
         )}
 
         {isCreating ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-panel p-6 md:p-8"
+            transition={{ duration: 0.3 }}
+            className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
           >
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <FileSignature className="w-6 h-6 text-primary" />
-              Generate New Interview Report
-            </h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-6">
-              
-              {/* Resume Upload */}
-              <div>
-                <label className="label-text">Resume PDF</label>
-                <div className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-white/10 border-dashed rounded-xl bg-background/30 hover:bg-white/5 hover:border-primary/50 transition-colors cursor-pointer"
-                     onClick={() => document.getElementById('file-upload').click()}>
-                  <div className="space-y-1 text-center">
-                    <Upload className="mx-auto h-12 w-12 text-textSecondary" />
-                    <div className="flex text-sm text-textSecondary justify-center mt-2">
-                      <label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primaryHover focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary transition-colors">
-                        <span>Click to upload</span>
-                        <input id="file-upload" name="file-upload" type="file" accept=".pdf" className="sr-only" onChange={(e) => setResume(e.target.files[0])} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
-                    </div>
-                    <p className="text-xs text-textSecondary mt-1">PDF up to 5MB</p>
-                    {resume && (
-                      <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-lg inline-flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
-                        <p className="text-sm font-semibold text-primary">{resume.name}</p>
-                      </div>
+            <Card className="p-5 sm:p-6">
+              <div className="mb-6 flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+                  <FileSignature className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">Analysis details</h2>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Provide the resume and role context for a tailored preparation report.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <Field label="Resume PDF" htmlFor="resume-upload" hint="PDF files are supported.">
+                  <input
+                    ref={fileInputRef}
+                    id="resume-upload"
+                    name="file-upload"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    className="sr-only"
+                    onChange={(event) => selectFile(event.target.files?.[0])}
+                  />
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={handleFileKeyDown}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={handleFileDrop}
+                    className={cn(
+                      'flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center transition-colors',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      resume
+                        ? 'border-primary/40 bg-primary/5'
+                        : 'border-border bg-muted/35 hover:border-primary/45 hover:bg-primary/5',
                     )}
+                    aria-label="Upload resume PDF"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm">
+                      <Upload className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <p className="mt-4 text-sm font-medium text-foreground">
+                      {resume ? resume.name : 'Choose a resume PDF'}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">Drop a PDF here or browse files.</p>
+                  </div>
+                </Field>
+
+                <Field label="Job description" htmlFor="job-description">
+                  <div className="relative">
+                    <Briefcase className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                    <Textarea
+                      id="job-description"
+                      required
+                      rows={5}
+                      className="pl-10"
+                      placeholder="Paste the target job description here..."
+                      value={jobDescription}
+                      onChange={(event) => setJobDescription(event.target.value)}
+                    />
+                  </div>
+                </Field>
+
+                <Field label="Background context" htmlFor="self-description" hint="Optional, but helpful for tailoring.">
+                  <div className="relative">
+                    <User className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                    <Textarea
+                      id="self-description"
+                      rows={4}
+                      className="pl-10"
+                      placeholder="Add context about your background, goals, or target role..."
+                      value={selfDescription}
+                      onChange={(event) => setSelfDescription(event.target.value)}
+                    />
+                  </div>
+                </Field>
+
+                <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={resetForm} disabled={loading}>
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Button>
+                  <Button type="submit" disabled={loading || !resume || !jobDescription}>
+                    {loading ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Analyzing with AI
+                      </>
+                    ) : (
+                      <>
+                        Generate Report
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+
+            <div className="space-y-4">
+              <Card className="p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+                    <Sparkles className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">What happens next</h3>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Your report opens automatically after generation completes.
+                    </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Job Description */}
-              <div>
-                <label className="label-text">Job Description</label>
-                <div className="relative mt-1">
-                  <div className="absolute top-3 left-3 pointer-events-none">
-                    <Briefcase className="h-5 w-5 text-textSecondary" />
-                  </div>
-                  <textarea
-                    required
-                    rows={4}
-                    className="input-field pl-10 resize-y"
-                    placeholder="Paste the target job description here..."
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Self Description */}
-              <div>
-                <label className="label-text">Self Description / Background (Optional)</label>
-                <div className="relative mt-1">
-                  <div className="absolute top-3 left-3 pointer-events-none">
-                    <User className="h-5 w-5 text-textSecondary" />
-                  </div>
-                  <textarea
-                    rows={3}
-                    className="input-field pl-10 resize-y"
-                    placeholder="Any additional context about your background or goals..."
-                    value={selfDescription}
-                    onChange={(e) => setSelfDescription(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-white/10 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={loading || !resume || !jobDescription}
-                  className="btn-primary"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Analyzing with AI...
-                    </>
-                  ) : (
-                    <>
-                      Generate Report
-                      <ArrowRight className="w-5 h-5" />
-                    </>
+              </Card>
+              <Card className="p-5">
+                <ul className="space-y-4 text-sm text-muted-foreground">
+                  {['Resume parsing', 'Role alignment scoring', 'Interview questions', 'Preparation plan'].map(
+                    (item) => (
+                      <li key={item} className="flex items-center gap-3">
+                        <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
+                        <span>{item}</span>
+                      </li>
+                    ),
                   )}
-                </button>
-              </div>
-
-            </form>
+                </ul>
+              </Card>
+            </div>
           </motion.div>
         ) : (
-          /* List of Reports */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {loading && reports.length === 0 ? (
-               <div className="col-span-full flex justify-center py-12">
-                 <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-               </div>
-            ) : reports.length === 0 ? (
-              <div className="col-span-full text-center py-12 glass-panel">
-                <FileText className="w-12 h-12 mx-auto text-textSecondary mb-4" />
-                <h3 className="text-lg font-medium text-textPrimary">No reports yet</h3>
-                <p className="text-textSecondary mt-1">Generate your first interview report to get started.</p>
-                <button onClick={() => setIsCreating(true)} className="btn-secondary mx-auto mt-6">
-                  Create Report
-                </button>
-              </div>
-            ) : (
-              reports.map((report, idx) => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  key={report._id} 
-                  className="glass-panel p-6 hover:border-primary/50 transition-colors group cursor-pointer flex flex-col h-full"
-                  onClick={() => navigate(`/interview/${report._id}`)}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs text-textSecondary font-medium bg-background/50 px-2.5 py-1 rounded-full border border-white/5">
-                      {new Date(report.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                    {report.title || 'Untitled Report'}
-                  </h3>
-                  <div className="mt-auto pt-5 border-t border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-accent animate-pulse-slow"></div>
-                      <span className="text-sm text-textSecondary uppercase tracking-wider font-semibold text-[10px]">Score: <span className="text-sm text-white ml-1">{report.matchScore}%</span></span>
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-textSecondary group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                  </div>
-                </motion.div>
-              ))
-            )}
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              <MetricCard icon={FileText} label="Total reports" value={metrics.total} helper="Saved in your account" />
+              <MetricCard icon={Sparkles} label="Latest score" value={`${metrics.latestScore}%`} helper="Most recent analysis" />
+              <MetricCard icon={CalendarDays} label="Average score" value={`${metrics.average}%`} helper="Across all reports" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3" aria-live="polite">
+              {loading && reports.length === 0 ? (
+                <ReportSkeletons />
+              ) : reports.length === 0 ? (
+                <EmptyState
+                  icon={FileText}
+                  title="No reports yet"
+                  description="Create your first analysis to see match scores, interview prompts, skill gaps, and a preparation plan."
+                  actionLabel="Create Report"
+                  onAction={() => setIsCreating(true)}
+                  className="col-span-full"
+                />
+              ) : (
+                reports.map((report, index) => (
+                  <ReportCard
+                    key={report._id}
+                    report={report}
+                    index={index}
+                    onOpen={() => navigate(`/interview/${report._id}`)}
+                  />
+                ))
+              )}
+            </div>
           </div>
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }

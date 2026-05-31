@@ -1,14 +1,221 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useInterview } from '../hooks/useInterview';
-import Navbar from '../../../components/Navbar';
-import { 
-  ArrowLeft, Download, BrainCircuit, Users, Target, CalendarDays, AlertTriangle 
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BrainCircuit,
+  CalendarDays,
+  Download,
+  FileText,
+  LoaderCircle,
+  Target,
+  Users,
+} from 'lucide-react';
+import Navbar from '../../../components/Navbar';
+import { Alert } from '../../../components/ui/Alert';
+import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { PageShell, SectionHeader } from '../../../components/ui/PageShell';
+import { ProgressRing } from '../../../components/ui/ProgressRing';
+import { Skeleton, Spinner } from '../../../components/ui/Skeleton';
+import { cn } from '../../../lib/utils';
+import { useInterview } from '../hooks/useInterview';
+
+const formatDate = (date) =>
+  new Intl.DateTimeFormat(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(date));
+
+const severityVariant = {
+  high: 'danger',
+  medium: 'warning',
+  low: 'success',
+};
+
+const sectionStyles = {
+  technical: {
+    icon: 'text-info',
+    badge: 'info',
+  },
+  behavioral: {
+    icon: 'text-primary',
+    badge: 'primary',
+  },
+};
+
+function ReportLoading() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <PageShell maxWidth="lg" className="space-y-6">
+        <Skeleton className="h-8 w-40" />
+        <Card className="p-6">
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-3">
+              <Skeleton className="h-8 w-72" />
+              <Skeleton className="h-5 w-52" />
+              <Skeleton className="h-5 w-96 max-w-full" />
+            </div>
+            <Skeleton className="h-36 w-36 rounded-full" />
+          </div>
+        </Card>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card key={index} className="p-6">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="mt-6 h-20 w-full" />
+          </Card>
+        ))}
+      </PageShell>
+    </div>
+  );
+}
+
+function QuestionSection({ title, icon: Icon, items, type, delay }) {
+  if (!items?.length) return null;
+
+  const styles = sectionStyles[type];
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.3 }}
+      className="space-y-4"
+    >
+      <div className="flex items-center gap-3">
+        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card', styles.icon)}>
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">{title}</h2>
+          <p className="text-sm text-muted-foreground">{items.length} tailored prompts</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4">
+        {items.map((item, index) => (
+          <Card key={`${title}-${index}`} className="p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <h3 className="text-base font-semibold leading-6 text-foreground">{item.questions}</h3>
+              <Badge variant={styles.badge} className="w-fit shrink-0">
+                Question {index + 1}
+              </Badge>
+            </div>
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border border-border bg-muted/45 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Interviewer's intention
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground">{item.intention}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Answer direction
+                </p>
+                <p className="mt-2 text-sm leading-6 text-foreground">{item.answers}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </motion.section>
+  );
+}
+
+function SkillGaps({ items }) {
+  if (!items?.length) return null;
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3, duration: 0.3 }}
+      className="space-y-4"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-warning">
+          <Target className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">Skill gaps</h2>
+          <p className="text-sm text-muted-foreground">Areas to close before the interview</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((gap, index) => {
+          const severity = String(gap.severity || '').toLowerCase();
+          return (
+            <Card key={`${gap.skills}-${index}`} className="flex flex-col p-5">
+              <p className="flex-1 text-base font-semibold leading-6 text-foreground">{gap.skills}</p>
+              <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
+                <span className="text-sm text-muted-foreground">Severity</span>
+                <Badge variant={severityVariant[severity] || 'neutral'} className="capitalize">
+                  {severity || 'unknown'}
+                </Badge>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </motion.section>
+  );
+}
+
+function PreparationPlan({ items }) {
+  if (!items?.length) return null;
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.4, duration: 0.3 }}
+      className="space-y-4"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-success">
+          <CalendarDays className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">Preparation plan</h2>
+          <p className="text-sm text-muted-foreground">Daily focus areas and practice tasks</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((plan, index) => (
+          <Card key={`${plan.day}-${index}`} className="p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-success/10 text-sm font-semibold text-success">
+                {plan.day}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-foreground">{plan.focus}</h3>
+                <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground sm:grid-cols-2">
+                  {(plan.task || []).map((task, taskIndex) => (
+                    <li key={`${task}-${taskIndex}`} className="flex gap-2">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                      <span>{task}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </motion.section>
+  );
+}
 
 export default function Interview() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { getReport, downloadPdf, loading, error } = useInterview();
   const [report, setReport] = useState(null);
   const [downloading, setDownloading] = useState(false);
@@ -36,23 +243,33 @@ export default function Interview() {
     }
   };
 
-  if (loading && !report) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-      </div>
+  const hasReportDetails = useMemo(() => {
+    if (!report) return false;
+    return Boolean(
+      report.technicalInterview?.length ||
+        report.behavioralInterview?.length ||
+        report.skillGap?.length ||
+        report.preparationPlan?.length,
     );
+  }, [report]);
+
+  if (loading && !report) {
+    return <ReportLoading />;
   }
 
   if (error && !report) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="glass-panel p-8 max-w-md text-center">
-          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Failed to load report</h2>
-          <p className="text-textSecondary mb-6">{error}</p>
-          <Link to="/" className="btn-primary inline-flex">Go back home</Link>
-        </div>
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <PageShell maxWidth="md" className="flex min-h-[calc(100vh-4rem)] items-center">
+          <EmptyState
+            icon={AlertTriangle}
+            title="Failed to load report"
+            description={error}
+            actionLabel="Go back home"
+            onAction={() => navigate('/')}
+          />
+        </PageShell>
       </div>
     );
   }
@@ -60,208 +277,92 @@ export default function Interview() {
   if (!report) return null;
 
   return (
-    <div className="min-h-screen flex flex-col pb-20 relative overflow-x-hidden">
-      <div className="fixed top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary/10 blur-[120px] pointer-events-none animate-blob" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent/10 blur-[120px] pointer-events-none animate-blob" style={{ animationDelay: '2s' }} />
-      <div className="fixed top-[40%] left-[60%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[100px] pointer-events-none animate-blob" style={{ animationDelay: '4s' }} />
+    <div className="min-h-screen bg-background pb-12">
       <Navbar />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 mt-8 relative z-10 space-y-8">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <Link to="/" className="text-textSecondary hover:text-white inline-flex items-center gap-2 text-sm font-medium transition-colors mb-4 group">
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-4xl font-bold text-gradient mb-2">{report.title}</h1>
-            <p className="text-textSecondary">Generated on {new Date(report.createdAt).toLocaleDateString()}</p>
-          </div>
-          
-          <button 
-            onClick={handleDownload}
-            disabled={downloading}
-            className="btn-primary"
+      <PageShell maxWidth="lg" className="space-y-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Link
+            to="/"
+            className="inline-flex w-fit items-center gap-2 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to dashboard
+          </Link>
+
+          <Button type="button" onClick={handleDownload} disabled={downloading}>
             {downloading ? (
               <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Generating PDF...
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                Generating PDF
               </>
             ) : (
               <>
-                <Download className="w-5 h-5" />
+                <Download className="h-4 w-4" />
                 Download Tailored Resume
               </>
             )}
-          </button>
+          </Button>
         </div>
 
-        {/* Match Score */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
+        {error && report && (
+          <Alert variant="error" title="Action failed">
+            {error}
+          </Alert>
+        )}
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="glass-panel p-8 flex items-center justify-between flex-wrap gap-8 bg-gradient-to-br from-surface/50 to-primary/5 border-primary/20"
+          transition={{ duration: 0.35 }}
         >
-          <div>
-            <h2 className="text-2xl font-bold mb-2 text-white flex items-center gap-2">
-              <Target className="w-6 h-6 text-primary" />
-              Overall Match Score
-            </h2>
-            <p className="text-textSecondary max-w-md text-lg leading-relaxed">
-              Based on the alignment between your resume and the target job description.
-            </p>
-          </div>
-          <div className="relative w-36 h-36 flex items-center justify-center">
-            {/* Background glow for the score */}
-            <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl animate-pulse-slow"></div>
-            <svg className="transform -rotate-90 w-36 h-36 relative z-10">
-              <circle cx="72" cy="72" r="64" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-white/5" />
-              <circle cx="72" cy="72" r="64" stroke="currentColor" strokeWidth="8" fill="transparent"
-                strokeDasharray="402" 
-                strokeDashoffset={402 - (402 * report.matchScore) / 100}
-                className={`${report.matchScore > 75 ? 'text-green-400' : report.matchScore > 50 ? 'text-yellow-400' : 'text-red-400'} transition-all duration-1500 ease-out`}
-                strokeLinecap="round"
+          <Card className="overflow-hidden">
+            <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_180px] lg:items-center">
+              <SectionHeader
+                eyebrow="Report"
+                title={report.title || 'Untitled Report'}
+                description={`Generated on ${formatDate(report.createdAt)}. Match score is based on your resume alignment with the target job description.`}
               />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center z-20">
-              <span className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">{report.matchScore}%</span>
+              <div className="flex justify-center lg:justify-end">
+                <ProgressRing value={report.matchScore} />
+              </div>
             </div>
-          </div>
+          </Card>
         </motion.div>
 
-        {/* Technical Questions */}
-        {report.technicalInterview?.length > 0 && (
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
-                <BrainCircuit className="w-6 h-6" />
-              </div>
-              <h2 className="text-2xl font-bold">Technical Interview</h2>
-            </div>
-            <div className="grid gap-6">
-              {report.technicalInterview.map((item, idx) => (
-                <div key={idx} className="glass-panel p-6 border-l-4 border-l-blue-500 hover:border-l-blue-400 hover:bg-white/5 transition-all duration-300">
-                  <h3 className="text-xl font-semibold mb-4 text-white">{item.questions}</h3>
-                  <div className="space-y-4">
-                    <div className="bg-black/20 rounded-xl p-5 border border-white/5 shadow-inner">
-                      <p className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mb-2">Interviewer's Intention</p>
-                      <p className="text-sm text-blue-100/80 leading-relaxed">{item.intention}</p>
-                    </div>
-                    <div className="px-1">
-                      <p className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mb-2">How to answer</p>
-                      <p className="text-sm text-textPrimary leading-relaxed">{item.answers}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
+        {!hasReportDetails && (
+          <EmptyState
+            icon={FileText}
+            title="No report details returned"
+            description="The report exists, but no interview sections were returned for this analysis."
+          />
         )}
 
-        {/* Behavioral Questions */}
-        {report.behavioralInterview?.length > 0 && (
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400">
-                <Users className="w-6 h-6" />
-              </div>
-              <h2 className="text-2xl font-bold">Behavioral Interview</h2>
-            </div>
-            <div className="grid gap-6">
-              {report.behavioralInterview.map((item, idx) => (
-                <div key={idx} className="glass-panel p-6 border-l-4 border-l-purple-500 hover:border-l-purple-400 hover:bg-white/5 transition-all duration-300">
-                  <h3 className="text-xl font-semibold mb-4 text-white">{item.questions}</h3>
-                  <div className="space-y-4">
-                    <div className="bg-black/20 rounded-xl p-5 border border-white/5 shadow-inner">
-                      <p className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mb-2">Interviewer's Intention</p>
-                      <p className="text-sm text-purple-100/80 leading-relaxed">{item.intention}</p>
-                    </div>
-                    <div className="px-1">
-                      <p className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mb-2">How to answer</p>
-                      <p className="text-sm text-textPrimary leading-relaxed">{item.answers}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
-        )}
+        <QuestionSection
+          title="Technical interview"
+          icon={BrainCircuit}
+          items={report.technicalInterview}
+          type="technical"
+          delay={0.1}
+        />
 
-        {/* Skill Gaps */}
-        {report.skillGap?.length > 0 && (
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-orange-500/20 rounded-lg text-orange-400">
-                <Target className="w-6 h-6" />
-              </div>
-              <h2 className="text-2xl font-bold">Skill Gaps</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {report.skillGap.map((gap, idx) => (
-                <div key={idx} className="glass-panel p-6 flex flex-col justify-between group hover:bg-white/5 transition-all duration-300">
-                  <p className="font-semibold text-lg mb-6 text-white group-hover:text-orange-400 transition-colors">{gap.skills}</p>
-                  <div className="flex items-center gap-3 border-t border-white/10 pt-4 mt-auto">
-                    <span className="text-[10px] text-textSecondary uppercase tracking-widest font-bold">Severity</span>
-                    <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
-                      gap.severity === 'high' ? 'bg-red-500/20 text-red-400 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]' :
-                      gap.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.2)]' :
-                      'bg-green-500/20 text-green-400 border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
-                    }`}>
-                      {gap.severity}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
-        )}
+        <QuestionSection
+          title="Behavioral interview"
+          icon={Users}
+          items={report.behavioralInterview}
+          type="behavioral"
+          delay={0.2}
+        />
 
-        {/* Preparation Plan */}
-        {report.preparationPlan?.length > 0 && (
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
-                <CalendarDays className="w-6 h-6" />
-              </div>
-              <h2 className="text-2xl font-bold">Preparation Plan</h2>
-            </div>
-            <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-              {report.preparationPlan.map((plan, idx) => (
-                <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-background bg-emerald-500/20 text-emerald-400 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-xl z-10">
-                    <span className="font-bold text-sm">{plan.day}</span>
-                  </div>
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass-panel p-5">
-                    <h3 className="font-bold text-lg mb-1">{plan.focus}</h3>
-                    <ul className="list-disc list-inside text-sm text-textSecondary space-y-1">
-                      {plan.task.map((t, i) => <li key={i}>{t}</li>)}
-                    </ul>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
+        <SkillGaps items={report.skillGap} />
+        <PreparationPlan items={report.preparationPlan} />
+
+        {downloading && (
+          <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-card px-4 py-3 shadow-soft">
+            <Spinner label="Preparing download" />
+          </div>
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }

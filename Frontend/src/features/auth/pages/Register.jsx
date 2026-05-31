@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { Mail, Lock, User, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { LoaderCircle, Lock, Mail, User, UserPlus } from 'lucide-react';
+import { Alert } from '../../../components/ui/Alert';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { Field, Input } from '../../../components/ui/Form';
+import { useAuth } from '../hooks/useAuth';
+import { AuthLayout } from '../components/AuthLayout';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -10,12 +15,12 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
     try {
@@ -29,96 +34,91 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px]" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/20 blur-[120px]" />
-      
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+    <AuthLayout title="Create your account" description="Start a workspace for your resume analysis reports.">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-panel w-full max-w-md p-8 relative z-10"
+        transition={{ duration: 0.35 }}
       >
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-          <p className="text-textSecondary">Join us to start analyzing resumes</p>
-        </div>
+        <Card className="p-5 sm:p-6">
+          {error && (
+            <Alert variant="error" title="Registration failed" className="mb-5">
+              {error}
+            </Alert>
+          )}
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
-            {error}
-          </div>
-        )}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <Field label="Full name" htmlFor="register-name">
+              <div className="relative">
+                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="register-name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="pl-10"
+                  placeholder="John Doe"
+                />
+              </div>
+            </Field>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="label-text">Full Name</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-textSecondary" />
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input-field pl-10"
-                placeholder="John Doe"
-              />
-            </div>
-          </div>
+            <Field label="Email" htmlFor="register-email">
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="register-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="pl-10"
+                  placeholder="john@example.com"
+                />
+              </div>
+            </Field>
 
-          <div>
-            <label className="label-text">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-textSecondary" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-field pl-10"
-                placeholder="john@example.com"
-              />
-            </div>
-          </div>
+            <Field label="Password" htmlFor="register-password" hint="Use a strong password you do not use elsewhere.">
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="register-password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="pl-10"
+                  placeholder="Create a password"
+                />
+              </div>
+            </Field>
 
-          <div>
-            <label className="label-text">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-textSecondary" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field pl-10"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Creating account
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4" />
+                  Create Account
+                </>
+              )}
+            </Button>
+          </form>
+        </Card>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full mt-2"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <UserPlus className="w-5 h-5" />
-                Create Account
-              </>
-            )}
-          </button>
-        </form>
-
-        <p className="text-center text-textSecondary mt-6 text-sm">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link to="/login" className="text-primary hover:text-primaryHover font-medium transition-colors">
+          <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
             Sign in here
           </Link>
         </p>
       </motion.div>
-    </div>
+    </AuthLayout>
   );
 }

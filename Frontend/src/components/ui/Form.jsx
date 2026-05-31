@@ -1,0 +1,50 @@
+import { cn } from '../../lib/utils';
+
+export function Field({ label, hint, error, children, className, htmlFor }) {
+  return (
+    <div className={cn('space-y-2', className)}>
+      {label && (
+        <label htmlFor={htmlFor} className="block text-sm font-medium text-foreground">
+          {label}
+        </label>
+      )}
+      {children}
+      {hint && !error && <p className="text-sm text-muted-foreground">{hint}</p>}
+      {error && (
+        <p className="text-sm font-medium text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function Input({ className, ...props }) {
+  return (
+    <input
+      className={cn(
+        'flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors',
+        'placeholder:text-muted-foreground',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function Textarea({ className, ...props }) {
+  return (
+    <textarea
+      className={cn(
+        'flex min-h-28 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors',
+        'placeholder:text-muted-foreground',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        className,
+      )}
+      {...props}
+    />
+  );
+}

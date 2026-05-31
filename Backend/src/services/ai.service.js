@@ -112,7 +112,7 @@ async function generateInterviewReport({
   console.log(response.text);
 
   return JSON.parse(response.text);
-
+}
 
 async function generateResumePdf({ resume, jobDescription, selfDescription }) {
   const resumePdfSchema = z.object({

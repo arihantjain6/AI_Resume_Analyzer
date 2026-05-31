@@ -3,7 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import z from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 dotenv.config();
 console.log("NEW AI SERVICE FILE RUNNING");
@@ -116,8 +117,12 @@ async function generateInterviewReport({
 }
 
 async function generatePdfFromHtml(htmlContent) {
+  const executablePath = await chromium.executablePath();
   const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
+    defaultViewport: chromium.defaultViewport,
+    executablePath: executablePath || puppeteer.executablePath(),
+    headless: chromium.headless,
   });
   const page = await browser.newPage();
   await page.setContent(htmlContent, { waitUntil: "networkidle0" });

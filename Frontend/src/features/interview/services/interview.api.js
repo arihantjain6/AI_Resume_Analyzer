@@ -20,8 +20,6 @@ export const getAllInterviewReportsAPI = async () => {
 };
 
 export const generateResumePdfAPI = async (id) => {
-  const response = await api.post(`/interview/resume/pdf/${id}`, {}, {
-    responseType: 'blob', // Important for downloading files
-  });
+  const response = await api.post(`/interview/resume/pdf/${id}`);
   return response.data;
 };

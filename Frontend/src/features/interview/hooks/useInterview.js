@@ -56,15 +56,16 @@ export const useInterview = () => {
     setLoading(true);
     setError(null);
     try {
-      const blob = await generateResumePdfAPI(id);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `tailored-resume-${id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const { html } = await generateResumePdfAPI(id);
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      
+      // Give the browser a moment to render fonts and styles before printing
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to download PDF');
       throw err;

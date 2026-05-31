@@ -3,8 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import z from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
-import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
 
 dotenv.config();
 console.log("NEW AI SERVICE FILE RUNNING");
@@ -114,22 +112,7 @@ async function generateInterviewReport({
   console.log(response.text);
 
   return JSON.parse(response.text);
-}
 
-async function generatePdfFromHtml(htmlContent) {
-  const executablePath = await chromium.executablePath();
-  const browser = await puppeteer.launch({
-    args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
-    defaultViewport: chromium.defaultViewport,
-    executablePath: executablePath || puppeteer.executablePath(),
-    headless: chromium.headless,
-  });
-  const page = await browser.newPage();
-  await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-  const pdfBuffer = await page.pdf({ format: "A4", margin: {top: "0.5in", right: "0.5in", bottom: "0.5in", left: "0.5in"} });
-  await browser.close();
-  return pdfBuffer;
-}
 
 async function generateResumePdf({ resume, jobDescription, selfDescription }) {
   const resumePdfSchema = z.object({
@@ -177,9 +160,7 @@ async function generateResumePdf({ resume, jobDescription, selfDescription }) {
   console.log(response.text);
 
   const jsonContent = JSON.parse(response.text);
-
-  const pdfBuffer = await generatePdfFromHtml(jsonContent.html);
-  return pdfBuffer;
+  return jsonContent.html;
 }
 
 export { generateInterviewReport, generateResumePdf };

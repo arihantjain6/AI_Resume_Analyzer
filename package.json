@@ -1,0 +1,10 @@
+{
+  "name": "resume-analyzer",
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "npm --prefix Backend install && npm --prefix Frontend install && npm --prefix Frontend run build",
+    "start": "npm --prefix Backend start",
+    "dev": "npm --prefix Backend run dev",
+    "lint": "npm --prefix Frontend run lint"
+  }
+}

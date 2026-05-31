@@ -51,13 +51,16 @@ async function generateInterviewReportPdfController(req, res){
     if(!interviewReport){
         return res.status(404).json({message: "Interview report not found"});
     }
-    const htmlContent = await generateResumePdf({
+    const pdfBuffer = await generateResumePdf({
         resume: interviewReport.resume,
         jobDescription: interviewReport.jobDescription,
         selfDescription: interviewReport.selfDescription
     });
-    
-    return res.status(200).json({ html: htmlContent });
+    res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="interview-report-${interviewId}.pdf"`
+    });
+    res.send(pdfBuffer);
 }
 
 export { generateInterviewReportController, getInterviewReportController, getAllInterviewReports, generateInterviewReportPdfController }

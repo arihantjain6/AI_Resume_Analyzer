@@ -56,27 +56,15 @@ export const useInterview = () => {
     setLoading(true);
     setError(null);
     try {
-      // Open window immediately to bypass pop-up blockers, then load content
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write('<h2>Generating Resume... Please wait.</h2>');
-      }
-
-      const { html } = await generateResumePdfAPI(id);
-      
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        
-        // Give the browser a moment to render fonts and styles before printing
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      } else {
-        alert("Please allow pop-ups for this site to download the PDF.");
-      }
+      const blob = await generateResumePdfAPI(id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `tailored-resume-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to download PDF');
       throw err;
